@@ -1,7 +1,7 @@
-// lib/booking_model.dart
+
 
 class Booking {
-  final int id; // Auto-generated ID from Supabase
+  final int id; 
   final String userId;
   final String userName;
 
@@ -15,7 +15,6 @@ class Booking {
   final String paymentStatus;
   final String depositDocument;
 
-  // Used to track progress or completion
   final String bookingStatus;
 
   Booking({
@@ -34,15 +33,11 @@ class Booking {
     this.bookingStatus = 'pending',
   });
 
-  /// ✅ Add backward-compatible getters for older references
   String get username => userName;
 
-  /// ✅ Add getter for bookingId (resolves your new error)
   int get bookingId => id;
 
-  /// Factory constructor to create a Booking object from Supabase JSON map
   factory Booking.fromJson(Map<String, dynamic> json) {
-    // --- Helper functions for safe parsing ---
     int parseInt(dynamic value) {
       if (value == null) return 0;
       if (value is int) return value;
@@ -68,7 +63,6 @@ class Booking {
       return DateTime.fromMillisecondsSinceEpoch(0);
     }
 
-    // --- Return a constructed Booking object ---
     return Booking(
       id: parseInt(json['id']),
       userId: (json['user_id'] ?? json['userId'] ?? '') as String,

@@ -1,4 +1,3 @@
-// lib/profile_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,7 +11,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _usernameController = TextEditingController();
-  String _currentUsername = 'User Name'; // Default value
+  String _currentUsername = 'User Name'; 
 
   @override
   void initState() {
@@ -49,7 +48,6 @@ class _ProfilePageState extends State<ProfilePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Username saved successfully!')),
     );
-    // You might want to navigate back or update the UI
   }
 
   @override

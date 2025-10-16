@@ -1,4 +1,3 @@
-// lib/booking_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -24,7 +23,6 @@ class BookingPage extends StatefulWidget {
 }
 
 class _BookingPageState extends State<BookingPage> {
-  // <---- Paste your Razorpay API Key ID here ---->
   static const String _razorpayKeyId = 'rzp_test_RSrHHLj5py8Lll';
   
   late Razorpay _razorpay;

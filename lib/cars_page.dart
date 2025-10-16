@@ -1,4 +1,3 @@
-// lib/cars_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,7 +12,7 @@ class CarsPage extends StatefulWidget {
 }
 
 class _CarsPageState extends State<CarsPage> {
-  late Future<List<Car>> _carsFuture; // Changed to match FutureBuilder's logic
+  late Future<List<Car>> _carsFuture; 
   String _sortOrder = 'asc';
   final TextEditingController _searchController = TextEditingController();
   List<Car> _allCars = [];
@@ -26,7 +25,6 @@ class _CarsPageState extends State<CarsPage> {
     _searchController.addListener(_sortAndFilterCars);
   }
 
-  // Updated to return the Future, which is then handled by the FutureBuilder
   Future<List<Car>> _fetchCars() async {
     try {
       final response = await Supabase.instance.client.from('cars').select();
@@ -35,28 +33,24 @@ class _CarsPageState extends State<CarsPage> {
       _sortAndFilterCars();
       return _filteredCars;
     } catch (e) {
-      // Return an empty list on failure to avoid the state setter error
       _filteredCars = [];
       throw Exception('Failed to load cars: $e');
     }
   }
 
   void _sortAndFilterCars() {
-    // 1. Filter by search query
     _filteredCars = _allCars.where((car) {
       final nameLower = car.name.toLowerCase();
       final searchLower = _searchController.text.toLowerCase();
       return nameLower.contains(searchLower);
     }).toList();
 
-    // 2. Sort by price
     if (_sortOrder == 'asc') {
       _filteredCars.sort((a, b) => a.price.compareTo(b.price));
     } else {
       _filteredCars.sort((a, b) => b.price.compareTo(a.price));
     }
 
-    // Trigger UI rebuild
     setState(() {});
   }
 
@@ -76,7 +70,6 @@ class _CarsPageState extends State<CarsPage> {
       ),
       body: Column(
         children: [
-          // ----------------- New Search Bar in Body -----------------
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -93,7 +86,6 @@ class _CarsPageState extends State<CarsPage> {
               ),
             ),
           ),
-          // ----------------- Sorting Controls -----------------
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Row(
@@ -139,7 +131,6 @@ class _CarsPageState extends State<CarsPage> {
               ],
             ),
           ),
-          // ----------------- Vehicle Grid (FutureBuilder) -----------------
           Expanded(
             child: FutureBuilder(
               future: _carsFuture,
@@ -176,7 +167,6 @@ class _CarsPageState extends State<CarsPage> {
   }
 }
 
-// VehicleCard remains the same (defined here for completeness)
 class VehicleCard extends StatelessWidget {
   final dynamic vehicle;
   final String vehicleType;

@@ -91,7 +91,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
             onPressed: () async {
               final extraHours = int.tryParse(hoursController.text.trim()) ?? 0;
               if (extraHours <= 0) return;
-              final extraAmount = extraHours * 100.0; // Example ₹100/hr
+              final extraAmount = extraHours * 100.0;
 
               Navigator.pop(context);
               _startRazorpayPayment(booking, extraHours, extraAmount);
@@ -106,7 +106,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   void _startRazorpayPayment(Booking booking, int extraHours, double extraAmount) {
     final razorpay = Razorpay();
     var options = {
-      'key': 'rzp_test_XXXXXXXXXXXX', // replace with your Razorpay key
+      'key': 'rzp_test_XXXXXXXXXXXX', 
       'amount': (extraAmount * 100).toInt(),
       'name': 'WheelShare',
       'description': 'Extra hours booking',

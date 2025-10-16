@@ -1,4 +1,3 @@
-// lib/booking_details_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:wheelshare/booking_model.dart';
@@ -23,7 +22,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   void initState() {
     super.initState();
     _paymentStatus = widget.booking.paymentStatus;
-    _bookingStatus = 'Ongoing'; // Initial booking status
+    _bookingStatus = 'Ongoing'; 
   }
 
   void _updatePaymentStatus() {
@@ -84,7 +83,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // User and Booking Information
+           
             _buildSectionHeader('User & Booking Info'),
             Card(
               child: Padding(
@@ -109,7 +108,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
             const SizedBox(height: 24),
 
-            // Payment Section
+           
             _buildSectionHeader('Payment Status'),
             Card(
               child: Padding(
@@ -125,7 +124,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
             const SizedBox(height: 24),
 
-            // Vehicle Handover Section
+          
             _buildSectionHeader('Vehicle Handover'),
             Card(
               child: Padding(
@@ -174,7 +173,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
             const SizedBox(height: 24),
 
-            // Final Booking Status Section
+            
             _buildSectionHeader('Finalize Booking'),
             Card(
               child: Padding(

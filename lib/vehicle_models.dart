@@ -1,11 +1,11 @@
-// lib/vehicle_models.dart
+
 
 class Car {
-  final String id; // MODIFIED: Changed from int to String
+  final String id;
   final String name;
   final String image_url;
   final String model;
-  final double price; // MODIFIED: Changed to double for consistency
+  final double price;
 
   Car({
     required this.id,
@@ -17,20 +17,20 @@ class Car {
 
   factory Car.fromJson(Map<String, dynamic> json) {
     return Car(
-      id: json['id'] as String, // MODIFIED: Read ID directly as a String
+      id: json['id'] as String,
       name: json['name'] as String,
       image_url: json['image_url'] ?? 'https://via.placeholder.com/200',
       model: json['model'] as String? ?? 'Unknown',
-      price: (json['price'] as num).toDouble(), // MODIFIED: Parse price as double
+      price: (json['price'] as num).toDouble(),
     );
   }
 }
 
 class Bike {
-  final String id; // MODIFIED: Changed from int to String
+  final String id;
   final String name;
   final String image_url;
-  final double price; // MODIFIED: Changed to double for consistency
+  final double price;
 
   Bike({
     required this.id,
@@ -41,10 +41,10 @@ class Bike {
 
   factory Bike.fromJson(Map<String, dynamic> json) {
     return Bike(
-      id: json['id'] as String, // MODIFIED: Read ID directly as a String
+      id: json['id'] as String,
       name: json['name'] as String,
       image_url: json['image_url'] ?? 'https://via.placeholder.com/200',
-      price: (json['price'] as num).toDouble(), // MODIFIED: Parse price as double
+      price: (json['price'] as num).toDouble(),
     );
   }
 }

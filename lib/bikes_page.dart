@@ -1,9 +1,9 @@
-// lib/bikes_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wheelshare/vehicle_models.dart';
 import 'package:wheelshare/booking_page.dart';
-import 'package:wheelshare/cars_page.dart'; // Import the VehicleCard widget
+import 'package:wheelshare/cars_page.dart'; 
 
 class BikesPage extends StatefulWidget {
   const BikesPage({super.key});
@@ -71,7 +71,7 @@ class _BikesPageState extends State<BikesPage> {
       ),
       body: Column(
         children: [
-          // ----------------- New Search Bar in Body -----------------
+         
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -88,7 +88,7 @@ class _BikesPageState extends State<BikesPage> {
               ),
             ),
           ),
-          // ----------------- Sorting Controls -----------------
+          
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Row(
@@ -100,7 +100,7 @@ class _BikesPageState extends State<BikesPage> {
                 ),
                 Row(
                   children: [
-                    // Low to High
+                   
                     Radio<String>(
                       value: 'asc',
                       groupValue: _sortOrder,
@@ -115,7 +115,7 @@ class _BikesPageState extends State<BikesPage> {
                     ),
                     const Text('Low'),
                     const SizedBox(width: 16),
-                    // High to Low
+                    
                     Radio<String>(
                       value: 'desc',
                       groupValue: _sortOrder,
@@ -134,7 +134,7 @@ class _BikesPageState extends State<BikesPage> {
               ],
             ),
           ),
-          // ----------------- Vehicle Grid (FutureBuilder) -----------------
+          
           Expanded(
             child: FutureBuilder(
               future: _bikesFuture,

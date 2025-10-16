@@ -1,5 +1,3 @@
-// lib/home_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:animations/animations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,7 +27,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadUsername() async {
-    // For now, let's keep reading from local storage as it works for this session
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       _username = prefs.getString('username') ?? 'User Name';
@@ -98,17 +95,17 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white, // <-- Changed to white
-        elevation: 0, // Removes the shadow for a cleaner look
-        iconTheme: const IconThemeData(color: Colors.black), // <-- Changes icons to black
+        backgroundColor: Colors.white, 
+        elevation: 0, 
+        iconTheme: const IconThemeData(color: Colors.black), 
         title: Row(
           children: [
-            const Icon(Icons.directions_car, color: Colors.black), // <-- Changed to black
+            const Icon(Icons.directions_car, color: Colors.black),
             const SizedBox(width: 8),
             const Text(
               'WheelShare',
               style: TextStyle(
-                color: Colors.black, // <-- Changed to black
+                color: Colors.black, 
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -117,7 +114,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           Row(
             children: [
-              Text(_username, style: const TextStyle(color: Colors.black)), // <-- Changed to black
+              Text(_username, style: const TextStyle(color: Colors.black)), 
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: () async {
@@ -126,7 +123,7 @@ class _HomePageState extends State<HomePage> {
                   );
                   _loadUsername();
                 },
-                child: const Icon(Icons.person, color: Colors.black), // <-- Changed to black
+                child: const Icon(Icons.person, color: Colors.black), 
               ),
             ],
           ),
@@ -286,7 +283,6 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
               const SizedBox(height: 32),
-              // Why Choose Us Section
               const Text(
                 'Why Choose Us?',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),

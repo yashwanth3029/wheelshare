@@ -1,5 +1,3 @@
-// lib/view_vehicles_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wheelshare/edit_vehicle_page.dart';
@@ -13,7 +11,6 @@ class ViewVehiclesPage extends StatefulWidget {
 }
 
 class _ViewVehiclesPageState extends State<ViewVehiclesPage> {
-  // MODIFIED: The future now returns a list of dynamic objects (Car or Bike)
   late Future<List<dynamic>> _allVehiclesFuture;
 
   @override
@@ -22,7 +19,6 @@ class _ViewVehiclesPageState extends State<ViewVehiclesPage> {
     _allVehiclesFuture = _fetchAllVehicles();
   }
 
-  /// MODIFIED: Fetches both cars and bikes and combines them into a single dynamic list.
   Future<List<dynamic>> _fetchAllVehicles() async {
     try {
       final carsFuture = Supabase.instance.client.from('cars').select();
@@ -35,10 +31,8 @@ class _ViewVehiclesPageState extends State<ViewVehiclesPage> {
 
       final List<dynamic> allVehicles = [];
 
-      // Map to Car objects and add to the list
       allVehicles.addAll(carsData.map((car) => Car.fromJson(car)));
 
-      // Map to Bike objects and add to the list
       allVehicles.addAll(bikesData.map((bike) => Bike.fromJson(bike)));
       
       return allVehicles;
@@ -47,7 +41,6 @@ class _ViewVehiclesPageState extends State<ViewVehiclesPage> {
     }
   }
 
-  /// MODIFIED: Accepts a dynamic vehicle object.
   Future<void> _deleteVehicle(dynamic vehicle, String type) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -109,7 +102,6 @@ class _ViewVehiclesPageState extends State<ViewVehiclesPage> {
         title: const Text('Manage Vehicles'),
         backgroundColor: Colors.blueAccent,
       ),
-      // MODIFIED: FutureBuilder now expects List<dynamic>
       body: FutureBuilder<List<dynamic>>(
         future: _allVehiclesFuture,
         builder: (context, snapshot) {
@@ -131,13 +123,11 @@ class _ViewVehiclesPageState extends State<ViewVehiclesPage> {
               final vehicle = vehicles[index];
               String type;
 
-              // MODIFIED: Check the type of the object
               if (vehicle is Car) {
                 type = 'Car';
               } else if (vehicle is Bike) {
                 type = 'Bike';
               } else {
-                // Should not happen, but good for safety
                 return const SizedBox.shrink(); 
               }
 
@@ -164,7 +154,6 @@ class _ViewVehiclesPageState extends State<ViewVehiclesPage> {
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         onPressed: () {
-                          // NOTE: Your EditVehiclePage must be able to handle a dynamic vehicle object
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) => EditVehiclePage(vehicle: vehicle,),

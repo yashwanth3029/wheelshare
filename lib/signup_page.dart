@@ -1,5 +1,3 @@
-// lib/signup_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wheelshare/home_page.dart';
@@ -54,7 +52,6 @@ class _SignUpPageState extends State<SignUpPage> {
       if (res.user != null) {
         await _createProfile(res.user!.id, _usernameController.text);
         
-        // Save the new username to local storage
         final SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('username', _usernameController.text);
 
