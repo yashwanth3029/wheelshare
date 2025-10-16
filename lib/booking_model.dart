@@ -1,9 +1,10 @@
 // lib/booking_model.dart
 
 class Booking {
-  final int id; // Assuming Supabase generates an auto-incrementing id
+  final int id; // Auto-generated ID from Supabase
   final String userId;
-  final String userName; // We might need to fetch this separately later
+  final String userName;
+
   final String vehicleName;
   final String vehicleType;
   final DateTime startDate;
@@ -14,10 +15,13 @@ class Booking {
   final String paymentStatus;
   final String depositDocument;
 
+  // Used to track progress or completion
+  final String bookingStatus;
+
   Booking({
     required this.id,
     required this.userId,
-    this.userName = 'N/A', // Default or fetch from a 'profiles' table
+    this.userName = 'N/A',
     required this.vehicleName,
     required this.vehicleType,
     required this.startDate,
@@ -27,27 +31,67 @@ class Booking {
     required this.totalAmount,
     required this.paymentStatus,
     required this.depositDocument,
+    this.bookingStatus = 'pending',
   });
 
-  // Factory constructor to create a Booking from a Supabase record (JSON map)
+  /// ✅ Add backward-compatible getters for older references
+  String get username => userName;
+
+  /// ✅ Add getter for bookingId (resolves your new error)
+  int get bookingId => id;
+
+  /// Factory constructor to create a Booking object from Supabase JSON map
   factory Booking.fromJson(Map<String, dynamic> json) {
+    // --- Helper functions for safe parsing ---
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    double parseDouble(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
+      if (value is DateTime) return value;
+      if (value is String) {
+        return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      }
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    // --- Return a constructed Booking object ---
     return Booking(
-      id: json['id'],
-      userId: json['user_id'],
-      // You might need to join with a profiles table to get user_name
-      // For now, let's assume you might store it or default it.
-      userName: json['user_name'] ?? 'Guest User', 
-      vehicleName: json['vehicle_name'],
-      vehicleType: json['vehicle_type'],
-      startDate: DateTime.parse(json['start_date']),
-      endDate: DateTime.parse(json['end_date']),
-      totalHours: json['total_hours'],
-      pickupLocation: json['pickup_location'],
-      totalAmount: (json['total_price'] as num).toDouble(),
-      paymentStatus: json['payment_status'],
-      depositDocument: json['deposit_document'],
+      id: parseInt(json['id']),
+      userId: (json['user_id'] ?? json['userId'] ?? '') as String,
+      userName: (json['user_name'] ??
+              json['username'] ??
+              json['userName'] ??
+              'Guest User')
+          .toString(),
+      vehicleName: (json['vehicle_name'] ?? json['vehicleName'] ?? '').toString(),
+      vehicleType: (json['vehicle_type'] ?? json['vehicleType'] ?? '').toString(),
+      startDate: parseDate(json['start_date'] ?? json['startDate']),
+      endDate: parseDate(json['end_date'] ?? json['endDate']),
+      totalHours: parseInt(json['total_hours'] ?? json['totalHours']),
+      pickupLocation:
+          (json['pickup_location'] ?? json['pickupLocation'] ?? '').toString(),
+      totalAmount:
+          parseDouble(json['total_price'] ?? json['totalPrice'] ?? json['totalAmount']),
+      paymentStatus:
+          (json['payment_status'] ?? json['paymentStatus'] ?? 'unpaid').toString(),
+      depositDocument:
+          (json['deposit_document'] ?? json['depositDocument'] ?? '').toString(),
+      bookingStatus:
+          (json['booking_status'] ?? json['bookingStatus'] ?? 'pending').toString(),
     );
   }
-
-  Object? get bookingId => null;
 }

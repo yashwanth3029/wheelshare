@@ -1,9 +1,13 @@
 // lib/booking_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // NEW: Import Supabase
+import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-import 'package:wheelshare/my_bookings_page.dart'; // NEW: Import the page to navigate to after booking
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:wheelshare/home_page.dart';
+import 'package:wheelshare/admin_home_page.dart';
+import 'package:wheelshare/vehicle_models.dart';
 
 class BookingPage extends StatefulWidget {
   final dynamic vehicle;
@@ -20,16 +24,18 @@ class BookingPage extends StatefulWidget {
 }
 
 class _BookingPageState extends State<BookingPage> {
+  // <---- Paste your Razorpay API Key ID here ---->
+  static const String _razorpayKeyId = 'rzp_test_RSrHHLj5py8Lll';
+  
+  late Razorpay _razorpay;
+  
   final _formKey = GlobalKey<FormState>();
   
-  // NEW: State variable to handle loading indicator on the button
-  bool _isLoading = false; 
-
   DateTime? _startDate;
   DateTime? _endDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-
+  
   int _totalHours = 0;
   double _totalPrice = 0.0;
   final double _hourlyRate = 100.0;
@@ -52,72 +58,26 @@ class _BookingPageState extends State<BookingPage> {
     'Original Driver\'s License',
   ];
   String? _selectedDeposit;
+  
+  String _paymentOption = 'pay_on_location';
 
-  String _paymentOption = 'pay_on_location'; // Default payment option
-
-  void _calculatePrice() {
-    if (_startDate != null &&
-        _endDate != null &&
-        _startTime != null &&
-        _endTime != null) {
-      final startDateTime = DateTime(
-        _startDate!.year,
-        _startDate!.month,
-        _startDate!.day,
-        _startTime!.hour,
-        _startTime!.minute,
-      );
-      final endDateTime = DateTime(
-        _endDate!.year,
-        _endDate!.month,
-        _endDate!.day,
-        _endTime!.hour,
-        _endTime!.minute,
-      );
-
-      // Ensure end date is after start date
-      if (endDateTime.isBefore(startDateTime)) {
-         setState(() {
-           _totalHours = 0;
-           _totalPrice = 0.0;
-         });
-         return;
-      }
-
-      final duration = endDateTime.difference(startDateTime);
-      _totalHours = duration.inHours;
-
-      double subtotal =
-          (widget.vehicle.price +
-          (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0));
-      double gst = subtotal * _gstRate;
-      // Recalculate total price correctly
-      _totalPrice = subtotal + gst + _platformFee + _securityDeposit;
-
-      // Update the state to reflect the new price on the UI
-      setState(() {});
-
-    } else {
-      setState(() {
-        _totalHours = 0;
-        _totalPrice = 0.0;
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
   }
 
-  // NEW: Function to save the booking data to your Supabase table
-  Future<void> _saveBooking() async {
-    setState(() {
-      _isLoading = true;
-    });
+  @override
+  void dispose() {
+    super.dispose();
+    _razorpay.clear();
+  }
 
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) {
-        // This should ideally never happen if your app flow is correct
-        throw 'User is not authenticated.';
-      }
-
+  void _calculatePrice() {
+    if (_startDate != null && _endDate != null && _startTime != null && _endTime != null) {
       final startDateTime = DateTime(
         _startDate!.year, _startDate!.month, _startDate!.day,
         _startTime!.hour, _startTime!.minute,
@@ -127,79 +87,164 @@ class _BookingPageState extends State<BookingPage> {
         _endTime!.hour, _endTime!.minute,
       );
 
-      final bookingData = {
-        'user_id': user.id,
-        'user_name': user.email, // It's better to get a name from a 'profiles' table if you have one
-        'vehicle_id': widget.vehicle.id, // IMPORTANT: Make sure your vehicle object has an 'id'
-        'vehicle_name': widget.vehicle.name, // And a 'name'
-        'vehicle_type': widget.vehicleType,
-        'start_date': startDateTime.toIso8601String(),
-        'end_date': endDateTime.toIso8601String(),
-        'total_hours': _totalHours,
-        'pickup_location': _selectedLocation,
-        'deposit_document': _selectedDeposit,
-        'total_price': _totalPrice,
-        'payment_status': 'Pending', // This is for 'Pay on Location'
-      };
+      final duration = endDateTime.difference(startDateTime);
+      _totalHours = duration.inHours;
 
-      // Insert data into the 'bookings' table
-      await Supabase.instance.client.from('bookings').insert(bookingData);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Booking confirmed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // After successful booking, take the user to their bookings list
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const MyBookingsPage()),
-          (route) => route.isFirst,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to confirm booking: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      double subtotal = (widget.vehicle.price.toDouble() + (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0));
+      double gst = subtotal * _gstRate;
+      double total = subtotal + gst + _platformFee + _securityDeposit;
+      _totalPrice = total;
+    } else {
+      _totalHours = 0;
+      _totalPrice = 0.0;
     }
   }
 
-  // MODIFIED: This function now calls _saveBooking()
-  void _handlePayment() {
+  Future<void> _saveBooking(String paymentStatus) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to make a booking.')),
+      );
+      return;
+    }
+
+    try {
+      await Supabase.instance.client.from('bookings').insert({
+        'user_id': user.id,
+        'username': (await Supabase.instance.client.from('users').select('username').eq('id', user.id).single())['username'],
+        'vehicle_id': widget.vehicle.id,
+        'vehicle_name': widget.vehicle.name,
+        'vehicle_type': widget.vehicleType,
+        'start_date': _startDate!.toIso8601String(),
+        'end_date': _endDate!.toIso8601String(),
+        'total_hours': _totalHours,
+        'pickup_location': _selectedLocation,
+        'deposit_document': _selectedDeposit,
+        'total_amount': _totalPrice,
+        'payment_status': paymentStatus,
+        'booking_status': 'pending',
+      });
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Booking created successfully!')),
+      );
+
+      final isAdmin = (await Supabase.instance.client.from('users').select('is_admin').eq('id', user.id).single())['is_admin'] as bool;
+      if (isAdmin) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AdminHomePage()),
+          (Route<dynamic> route) => false,
+        );
+      } else {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const HomePage()),
+          (Route<dynamic> route) => false,
+        );
+      }
+
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving booking: ${e.message}')),
+      );
+    }
+  }
+  
+  void _openRazorpayCheckout() {
+    var options = {
+      'key': _razorpayKeyId,
+      'amount': (_totalPrice * 100).toInt(),
+      'name': 'WheelShare Booking',
+      'description': 'Booking for ${widget.vehicle.name}',
+      'prefill': {
+        'contact': '9876543210',
+        'email': 'customer@example.com'
+      },
+      'external': {
+        'wallets': ['paytm']
+      }
+    };
+
+    try {
+      _razorpay.open(options);
+    } catch (e) {
+      debugPrint('Error: $e');
+    }
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Payment Successful: ${response.paymentId}')),
+    );
+    _saveBooking('Paid');
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Payment Failed: ${response.message}')),
+    );
+    _saveBooking('Failed');
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External Wallet Selected: ${response.walletName}')),
+    );
+  }
+
+  void _handleBooking() {
     if (_formKey.currentState!.validate()) {
-      if (_selectedLocation == null ||
-          _selectedDeposit == null ||
-          _totalHours < 12) {
+      if (_selectedLocation == null || _selectedDeposit == null || _totalHours < 12) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Please select all booking details. Minimum booking time is 12 hours.',
-            ),
-          ),
+          const SnackBar(content: Text('Please select all booking details. Minimum booking time is 12 hours.')),
         );
         return;
       }
-
+      
       if (_paymentOption == 'pay_now') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Online payment will be implemented soon!')),
-        );
+        _openRazorpayCheckout();
       } else {
-        // For 'pay_on_location', call the function to save data to Supabase
-        _saveBooking();
+        _saveBooking('To Be Paid');
       }
+    }
+  }
+  
+  Future<void> _selectDate(bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2026),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStartDate) {
+          _startDate = picked;
+          _endDate = null;
+        } else {
+          _endDate = picked;
+        }
+        _calculatePrice();
+      });
+    }
+  }
+
+  Future<void> _selectTime(bool isStartTime) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStartTime) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+        _calculatePrice();
+      });
     }
   }
 
@@ -217,7 +262,6 @@ class _BookingPageState extends State<BookingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Vehicle Details
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
@@ -245,10 +289,7 @@ class _BookingPageState extends State<BookingPage> {
                     const SizedBox(height: 16),
                     Text(
                       widget.vehicle.name,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -259,8 +300,7 @@ class _BookingPageState extends State<BookingPage> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // New Date & Time Picker Section
+              
               const Text(
                 'Select Start and End Date & Time',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -271,22 +311,14 @@ class _BookingPageState extends State<BookingPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _selectDate(true),
-                      child: Text(
-                        _startDate == null
-                            ? 'Select Start Date'
-                            : DateFormat('dd/MM/yyyy').format(_startDate!),
-                      ),
+                      child: Text(_startDate == null ? 'Select Start Date' : DateFormat('dd/MM/yyyy').format(_startDate!)),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _selectTime(true),
-                      child: Text(
-                        _startTime == null
-                            ? 'Select Start Time'
-                            : _startTime!.format(context),
-                      ),
+                      child: Text(_startTime == null ? 'Select Start Time' : _startTime!.format(context)),
                     ),
                   ),
                 ],
@@ -297,29 +329,20 @@ class _BookingPageState extends State<BookingPage> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _selectDate(false),
-                      child: Text(
-                        _endDate == null
-                            ? 'Select End Date'
-                            : DateFormat('dd/MM/yyyy').format(_endDate!),
-                      ),
+                      child: Text(_endDate == null ? 'Select End Date' : DateFormat('dd/MM/yyyy').format(_endDate!)),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _selectTime(false),
-                      child: Text(
-                        _endTime == null
-                            ? 'Select End Time'
-                            : _endTime!.format(context),
-                      ),
+                      child: Text(_endTime == null ? 'Select End Time' : _endTime!.format(context)),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
 
-              // Pickup Location
               const Text(
                 'Pickup Location',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -351,7 +374,6 @@ class _BookingPageState extends State<BookingPage> {
               ),
               const SizedBox(height: 24),
 
-              // Important Notice Section
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -380,7 +402,6 @@ class _BookingPageState extends State<BookingPage> {
               ),
               const SizedBox(height: 24),
 
-              // Deposit Options
               const Text(
                 'Select a Deposit Document',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -393,7 +414,10 @@ class _BookingPageState extends State<BookingPage> {
                   border: OutlineInputBorder(),
                 ),
                 items: _depositOptions.map((option) {
-                  return DropdownMenuItem(value: option, child: Text(option));
+                  return DropdownMenuItem(
+                    value: option,
+                    child: Text(option),
+                  );
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
@@ -409,7 +433,6 @@ class _BookingPageState extends State<BookingPage> {
               ),
               const SizedBox(height: 24),
 
-              // Payment Summary
               const Text(
                 'Payment Details',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -425,7 +448,7 @@ class _BookingPageState extends State<BookingPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Rental Duration'),
-                          Text('$_totalHours hours'),
+                          Text('${_totalHours} hours'),
                         ],
                       ),
                       const Divider(),
@@ -441,9 +464,7 @@ class _BookingPageState extends State<BookingPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Additional Hours'),
-                            Text(
-                              '₹${((_totalHours - 12) * _hourlyRate).toStringAsFixed(2)}',
-                            ),
+                            Text('₹${((_totalHours - 12) * _hourlyRate).toStringAsFixed(2)}'),
                           ],
                         ),
                       const SizedBox(height: 8),
@@ -459,9 +480,7 @@ class _BookingPageState extends State<BookingPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('GST (5%)'),
-                          Text(
-                            '₹${((widget.vehicle.price + (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0)) * _gstRate).toStringAsFixed(2)}',
-                          ),
+                          Text('₹${((widget.vehicle.price + (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0)) * _gstRate).toStringAsFixed(2)}'),
                         ],
                       ),
                       const Divider(),
@@ -469,10 +488,7 @@ class _BookingPageState extends State<BookingPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Subtotal'),
-                          Text(
-                            '₹${((widget.vehicle.price + (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0)) + ((widget.vehicle.price + (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0)) * _gstRate)).toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          Text('₹${((widget.vehicle.price + (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0)) + ((widget.vehicle.price + (_totalHours > 12 ? (_totalHours - 12) * _hourlyRate : 0.0)) * _gstRate)).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -480,24 +496,15 @@ class _BookingPageState extends State<BookingPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Security Deposit'),
-                          Text(
-                            '₹${_securityDeposit.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          Text('₹${_securityDeposit.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const Divider(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Total Payable',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '₹${_totalPrice.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          const Text('Total Payable', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('₹${_totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ],
@@ -505,7 +512,6 @@ class _BookingPageState extends State<BookingPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Payment Options
               const Text(
                 'Choose a payment option',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -531,28 +537,16 @@ class _BookingPageState extends State<BookingPage> {
                 },
               ),
               const SizedBox(height: 24),
-
-              // MODIFIED Book Now Button
+              
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  // Disable the button when loading to prevent multiple clicks
-                  onPressed: _isLoading ? null : _handlePayment,
+                  onPressed: _handleBooking,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueAccent,
-                    disabledBackgroundColor: Colors.grey,
                   ),
-                  child: _isLoading
-                      // Show a loading circle when processing
-                      ? const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        )
-                      // Otherwise, show the text
-                      : const Text(
-                          'Book Now',
-                          style: TextStyle(color: Colors.white, fontSize: 18),
-                        ),
+                  child: const Text('Book Now', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
@@ -560,53 +554,5 @@ class _BookingPageState extends State<BookingPage> {
         ),
       ),
     );
-  }
-}
-
-extension on _BookingPageState {
-  Future<void> _selectDate(bool isStart) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStart
-          ? (_startDate ?? DateTime.now())
-          : (_endDate ?? _startDate ?? DateTime.now()),
-      // Prevent selecting a date before today for start date
-      // For end date, prevent selecting a date before the start date
-      firstDate: isStart ? DateTime.now() : (_startDate ?? DateTime.now()),
-      lastDate: DateTime(2026),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-          // Reset end date if it's now before the new start date
-          if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-            _endDate = null;
-          }
-        } else {
-          _endDate = picked;
-        }
-        _calculatePrice();
-      });
-    }
-  }
-
-  Future<void> _selectTime(bool isStart) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: isStart
-          ? (_startTime ?? TimeOfDay.now())
-          : (_endTime ?? TimeOfDay.now()),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startTime = picked;
-        } else {
-          _endTime = picked;
-        }
-        _calculatePrice();
-      });
-    }
   }
 }

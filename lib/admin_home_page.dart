@@ -1,12 +1,11 @@
-// lib/admin_home_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wheelshare/booking_details_page.dart';
 import 'package:wheelshare/booking_model.dart';
 import 'package:wheelshare/add_vehicle_page.dart';
 import 'package:wheelshare/view_vehicles_page.dart';
-import 'package:wheelshare/login_page.dart'; // Import the single login page
+import 'package:wheelshare/login_page.dart';
+import 'dart:math' show pi;
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
@@ -15,46 +14,173 @@ class AdminHomePage extends StatefulWidget {
   State<AdminHomePage> createState() => _AdminHomePageState();
 }
 
-class _AdminHomePageState extends State<AdminHomePage> {
-  // We now fetch bookings from Supabase instead of using mock data.
-  late final Future<List<Booking>> _bookingsFuture;
+class _AdminHomePageState extends State<AdminHomePage>
+    with SingleTickerProviderStateMixin {
+  late Future<List<Booking>> _bookingsFuture;
+  List<Booking> _bookings = [];
+  String _sortBy = 'recent';
 
   @override
   void initState() {
     super.initState();
-    // Fetch the bookings when the widget is first created
     _bookingsFuture = _fetchBookings();
   }
 
-  /// Fetches the list of bookings from the Supabase 'bookings' table.
   Future<List<Booking>> _fetchBookings() async {
     try {
-      // Fetch data and order by the 'created_at' timestamp to show newest bookings first.
-      // Supabase automatically adds a 'created_at' column to your tables.
       final response = await Supabase.instance.client
           .from('bookings')
           .select()
           .order('created_at', ascending: false);
 
-      // Convert the raw list of maps into a list of Booking objects using the fromJson factory
-      final bookings = (response as List)
-          .map((bookingData) => Booking.fromJson(bookingData))
-          .toList();
-      return bookings;
+      if (response is List) {
+        final bookings =
+            response.map((b) => Booking.fromJson(b)).toList(growable: false);
+        _bookings = bookings;
+        return bookings;
+      } else {
+        throw Exception('Unexpected response format from Supabase');
+      }
     } catch (e) {
-      // If an error occurs, we rethrow it to be caught by the FutureBuilder.
-      // This allows us to display an error message in the UI.
       throw Exception('Failed to load bookings: $e');
     }
   }
 
-  /// Signs the user out and navigates back to the login page.
+  Future<void> _markBookingCompleted(String bookingId) async {
+    try {
+      await Supabase.instance.client
+          .from('bookings')
+          .update({'booking_status': 'done'})
+          .eq('id', bookingId);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking marked as completed!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      setState(() {
+        _bookingsFuture = _fetchBookings();
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update booking: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _sortBookings(String criterion) {
+    setState(() {
+      _sortBy = criterion;
+      switch (criterion) {
+        case 'recent':
+          _bookings.sort((a, b) => b.startDate.compareTo(a.startDate));
+          break;
+        case 'date':
+          _bookings.sort((a, b) => a.startDate.compareTo(b.startDate));
+          break;
+        case 'month':
+          _bookings.sort((a, b) =>
+              a.startDate.month.compareTo(b.startDate.month));
+          break;
+        case 'year':
+          _bookings.sort((a, b) =>
+              a.startDate.year.compareTo(b.startDate.year));
+          break;
+      }
+    });
+  }
+
+  void _openVerificationDialog(Booking booking) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Verify User - ${booking.username}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.verified_user, color: Colors.blue, size: 40),
+              const SizedBox(height: 10),
+              Text('Aadhaar: Verified ✅'),
+              Text('License: Verified ✅'),
+              Text('Deposit Document: ${booking.depositDocument.isNotEmpty ? "Uploaded ✅" : "Not Provided ❌"}'),
+              const SizedBox(height: 10),
+              Text('Payment Status: ${booking.paymentStatus}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () {
+                Navigator.pop(context);
+                _markBookingCompleted(booking.id.toString());
+              },
+              child: const Text('Mark as Completed'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _logout() async {
     await Supabase.instance.client.auth.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const LoginPage()),
-      (Route<dynamic> route) => false,
+      (route) => false,
+    );
+  }
+
+  Widget _buildAnimatedCard(
+      {required String title,
+      required IconData icon,
+      required Color color,
+      required VoidCallback onTap}) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 800),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Transform.rotate(
+            angle: (1 - value) * pi / 12,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Card(
+                color: color.withOpacity(0.9),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                elevation: 8,
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, size: 50, color: Colors.white),
+                      const SizedBox(height: 10),
+                      Text(title,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -62,36 +188,31 @@ class _AdminHomePageState extends State<AdminHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        backgroundColor: Colors.blueAccent,
-      ),
+          title: const Text('Admin Dashboard'),
+          backgroundColor: Colors.blueAccent),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             const DrawerHeader(
               decoration: BoxDecoration(color: Colors.blueAccent),
-              child: Text('Admin Menu', style: TextStyle(color: Colors.white, fontSize: 24)),
+              child: Text('Admin Menu',
+                  style: TextStyle(color: Colors.white, fontSize: 24)),
             ),
             ListTile(
               leading: const Icon(Icons.add_circle_outline),
               title: const Text('Add New Vehicle'),
               onTap: () {
-                Navigator.of(context).pop(); // Close the drawer
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const AddVehiclePage()),
-                );
+                    MaterialPageRoute(builder: (_) => const AddVehiclePage()));
               },
             ),
             ListTile(
               leading: const Icon(Icons.car_rental),
               title: const Text('Manage Vehicles'),
               onTap: () {
-                Navigator.of(context).pop(); // Close the drawer
                 Navigator.of(context).push(
-                  // CORRECTED: Was ViewVehiclePage (singular)
-                  MaterialPageRoute(builder: (context) => const ViewVehiclesPage()),
-                );
+                    MaterialPageRoute(builder: (_) => const ViewVehiclesPage()));
               },
             ),
             const Divider(),
@@ -106,60 +227,85 @@ class _AdminHomePageState extends State<AdminHomePage> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
-              elevation: 4,
-              child: ListTile(
-                leading: const Icon(Icons.add_circle, color: Colors.blueAccent),
-                title: const Text('Add New Vehicle', style: TextStyle(fontWeight: FontWeight.bold)),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const AddVehiclePage()),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 4,
-              child: ListTile(
-                leading: const Icon(Icons.car_rental, color: Colors.blueAccent),
-                title: const Text('Manage Existing Vehicles', style: TextStyle(fontWeight: FontWeight.bold)),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const ViewVehiclesPage()),
-                  );
-                },
-              ),
+            // Two animated boxes
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: _buildAnimatedCard(
+                    title: "Add",
+                    icon: Icons.add_circle,
+                    color: Colors.green,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AddVehiclePage(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildAnimatedCard(
+                    title: "Edit",
+                    icon: Icons.directions_car,
+                    color: Colors.orange,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ViewVehiclesPage(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Recent Bookings',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+
+            // Booking section header + sort dropdown
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Bookings',
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87),
+                ),
+                DropdownButton<String>(
+                  value: _sortBy,
+                  items: const [
+                    DropdownMenuItem(value: 'recent', child: Text('Recent')),
+                    DropdownMenuItem(value: 'date', child: Text('Date')),
+                    DropdownMenuItem(value: 'month', child: Text('Month')),
+                    DropdownMenuItem(value: 'year', child: Text('Year')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _sortBookings(value);
+                  },
+                ),
+              ],
             ),
             const Divider(height: 20),
-            // Use a FutureBuilder to handle the loading, error, and data states.
+
+            // Bookings list
             Expanded(
               child: FutureBuilder<List<Booking>>(
                 future: _bookingsFuture,
                 builder: (context, snapshot) {
-                  // Show a loading spinner while waiting for data
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  // Show an error message if something went wrong
                   if (snapshot.hasError) {
                     return Center(child: Text('Error: ${snapshot.error}'));
                   }
-                  // Show a message if there are no bookings
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const Center(child: Text('No bookings found.'));
                   }
-                  
-                  // If data is available, display it in a list
-                  final bookings = snapshot.data!;
+
+                  final bookings = _bookings;
                   return ListView.builder(
                     itemCount: bookings.length,
                     itemBuilder: (context, index) {
@@ -171,26 +317,34 @@ class _AdminHomePageState extends State<AdminHomePage> {
                           leading: CircleAvatar(
                             backgroundColor: booking.paymentStatus == 'Paid'
                                 ? Colors.green
-                                : Colors.orange, // For 'Pending' status
+                                : Colors.orange,
                             child: Text(
-                              
-                              booking.id.toString(), 
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              booking.id.toString(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
-                          title: Text('${booking.vehicleName} (${booking.vehicleType})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(
+                            '${booking.vehicleName} (${booking.vehicleType})',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           subtitle: Text(
-                              'User: ${booking.userName}\nStatus: ${booking.paymentStatus}\nTotal: ₹${booking.totalAmount.toStringAsFixed(2)}'),
-                          trailing: const Icon(Icons.arrow_forward_ios),
+                            'User: ${booking.username}\nPayment: ${booking.paymentStatus}\nStatus: ${booking.bookingStatus}\nTotal: ₹${booking.totalAmount.toStringAsFixed(2)}',
+                          ),
+                          onTap: () => _openVerificationDialog(booking),
+                          trailing: booking.bookingStatus != 'done'
+                              ? ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green),
+                                  onPressed: () =>
+                                      _markBookingCompleted(booking.id.toString()),
+                                  child: const Text('Complete'),
+                                )
+                              : const Icon(Icons.check_circle,
+                                  color: Colors.green),
                           isThreeLine: true,
-                          onTap: () {
-                            // You can navigate to a details page here if needed
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => BookingDetailsPage(booking: booking),
-                              ),
-                            );
-                          },
                         ),
                       );
                     },
